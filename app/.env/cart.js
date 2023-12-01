@@ -44,16 +44,44 @@ const executeQuery = (query, values) => {
     });
 };
 
-
-
 // Tạo Order_Id và OrderDetail_Id duy nhất
 const generateUniqueId = () => {
     return uuidv4();
 };
 
+// Cập nhật total_amount trong orders
+const updateTotalAmount = async (orderId) => {
+    const updateTotalItemAmountQuery = `
+        UPDATE orders
+        SET total_item_amount = (
+            SELECT SUM(quantity)
+            FROM orderdetails
+            WHERE order_id = ?
+        )
+        WHERE Order_Id = ?;
+    `;
+
+    const updateTotalAmountQuery = `
+            Update orders
+            SET total_amount = (
+                SELECT SUM(amount)
+                FROM orderdetails
+                WHERE order_id = ?
+            )
+            WHERE Order_Id = ?;
+    `;
+
+    await executeQuery(updateTotalItemAmountQuery, [orderId, orderId]);
+    await executeQuery(updateTotalAmountQuery, [orderId, orderId]);
+};
+
 app.get('/api/carts', async (req, res) => {
     try {
-        const queryData = 'SELECT * FROM orders';
+        const queryData = `
+            SELECT o.*, od.*
+            FROM orders o
+            LEFT JOIN orderdetails od ON o.Order_Id = od.order_id
+        `;
         const results = await executeQuery(queryData);
 
         if (results && results.length > 0) {
@@ -66,6 +94,8 @@ app.get('/api/carts', async (req, res) => {
         res.status(500).json({ error: 'Lỗi truy suất dữ liệu' });
     }
 });
+
+
 
 app.post('/api/addToCart', async (req, res) => {
     try {
@@ -131,6 +161,9 @@ app.post('/api/addToCart', async (req, res) => {
 
             await executeQuery(orderDetailQuery, [generateUniqueId(), quantity, totalPrice, orderId, productId]);
         }
+
+        // Cập nhật total_amount trong orders sau khi thêm mới hoặc cập nhật orderdetails
+        await updateTotalAmount(orderId);
 
         res.status(200).json({ success: true, message: 'Sản phẩm được thêm vào giỏ hàng và đơn hàng đã được lưu thành công.' });
     } catch (error) {
