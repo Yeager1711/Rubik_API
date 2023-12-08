@@ -79,7 +79,7 @@ app.get('/api/carts', async (req, res) => {
     try {
         const queryData = `
             SELECT o.*, od.*
-            FROM orders o
+            From orders o
             LEFT JOIN orderdetails od ON o.Order_Id = od.order_id
         `;
         const results = await executeQuery(queryData);
@@ -94,7 +94,6 @@ app.get('/api/carts', async (req, res) => {
         res.status(500).json({ error: 'Lỗi truy suất dữ liệu' });
     }
 });
-
 
 
 app.post('/api/addToCart', async (req, res) => {
@@ -172,6 +171,65 @@ app.post('/api/addToCart', async (req, res) => {
     }
 });
 
+//Get Order user_id
+app.get('/api/carts/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const queryCart = `
+        SELECT o.*, od.*
+            FROM orders o
+        LEFT JOIN orderdetails od ON o.Order_Id = od.order_id
+        WHERE o.user_id = ? AND o.orderType = 'cart' AND o.order_status = 'incart'
+        `;
+
+        const cartItems = await executeQuery(queryCart, [userId]);
+
+        if (cartItems && cartItems.length > 0) {
+            res.status(200).json(cartItems);
+        } else {
+            res.status(200).json({ message: 'Không có đơn hàng nào cho user_id này.' });
+        }
+    } catch (error) {
+        console.error('Lỗi khi truy suất dữ liệu đơn hàng:', error);
+        res.status(500).json({ error: 'Lỗi khi truy suất dữ liệu đơn hàng.' });
+    }
+});
+
+// Thêm endpoint để đặt hàng
+app.post('/api/placeOrder/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // Lấy đơn hàng hiện tại của người dùng
+        const getOrderQuery = `
+            SELECT *
+            FROM orders
+            WHERE user_id = ? AND orderType = 'cart' AND order_status = 'incart'
+        `;
+
+        const existingOrder = await executeQuery(getOrderQuery, [userId]);
+
+        if (existingOrder.length > 0) {
+            // Cập nhật orderType và order_status
+            const updateOrderQuery = `
+                UPDATE orders
+                SET orderType = 'order', order_status = 'ordered'
+                WHERE Order_Id = ?
+            `;
+
+            await executeQuery(updateOrderQuery, [existingOrder[0].Order_Id]);
+
+            res.status(200).json({ success: true, message: 'Đơn hàng đã được đặt thành công.' });
+        } else {
+            res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng để đặt.' });
+        }
+    } catch (error) {
+        console.error('Lỗi khi đặt hàng:', error);
+        res.status(500).json({ success: false, message: 'Lỗi khi đặt hàng.' });
+    }
+});
+
+
 app.listen(port, () => {
-    console.log(`Máy chủ đang chạy trên cổng ${port}`);
+    console.log(`Server is running on port Orders: ${port}`);
 });

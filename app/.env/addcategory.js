@@ -68,5 +68,5 @@ app.post('/api/category', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server đang lắng nghe trên ${port}`);
+    console.log(`Server is running on port Category: ${port}`);
 });

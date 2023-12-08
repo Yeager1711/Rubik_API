@@ -49,5 +49,5 @@ app.get('/api/users/:user_id', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server đang lắng nghe trên cổng ${port}`);
+    console.log(`Server is running on port Profile: ${port}`);
 });

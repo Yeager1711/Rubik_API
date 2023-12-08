@@ -2,10 +2,11 @@ const express = require('express');
 const loginRouter = require('./login');
 const registerRouter = require('./register');
 const profileRouter = require('./profile');
-const addproductRouter = require('./addproduct');
+const productRouter = require('./products');
 const addCategoriesRouter = require('./addcategory');
-// const userRouter = require('./user');
+const userRouter = require('./user');
 const cartsRoutter = require('./cart')
+const addressRouter = require('./address');
 const dotenv = require('dotenv');
 
 dotenv.config(); // Tải biến môi trường từ file .env
@@ -17,13 +18,14 @@ const port = process.env.PORT || 3000; // Sử dụng biến môi trường ho�
 app.use('/login', loginRouter);
 app.use('/register', registerRouter);
 app.use('/profile', profileRouter);
-app.use('/addproduct', addproductRouter);
+app.use('/products', productRouter);
 app.use('/addcategory', addCategoriesRouter);
-// app.user('/user', userRouter)
+app.use('/user', userRouter);
+app.use('/address', addressRouter)
 
 app.use('/cart', cartsRoutter);
 
 // Lắng nghe trên cổng đã được đặt trong biến môi trường
 app.listen(port, () => {
-  console.log(`API đăng nhập đang lắng nghe trên cổng ${port}`);
+  console.log(`Server is running on port index: ${port}`);
 });
