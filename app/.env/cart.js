@@ -44,9 +44,11 @@ const executeQuery = (query, values) => {
     });
 };
 
-// Tạo Order_Id và OrderDetail_Id duy nhất
+// Tạo Order_Id và OrderDetail_Id duy nhất theo thời gian và số ngẫu nhiê
 const generateUniqueId = () => {
-    return uuidv4();
+    const timestamp = new Date().getTime(); // Thời gian hiện tại
+    const random = Math.floor(Math.random() * 1000); // Số ngẫu nhiên từ 0 đến 999
+    return `${timestamp}${random}`;
 };
 
 // Cập nhật total_amount trong orders
@@ -196,28 +198,30 @@ app.get('/api/carts/:userId', async (req, res) => {
 });
 
 // Thêm endpoint để đặt hàng
+// Thêm endpoint để đặt hàng
 app.post('/api/placeOrder/:userId', async (req, res) => {
     try {
         const userId = req.params.userId;
+        const totalAmountWithShipping = req.body.totalAmountWithShipping;
+        const shippingTax = req.body.shippingTax;
 
         // Lấy đơn hàng hiện tại của người dùng
-        const getOrderQuery = `
-            SELECT *
-            FROM orders
+        const existingOrderQuery = `
+            SELECT * FROM orders
             WHERE user_id = ? AND orderType = 'cart' AND order_status = 'incart'
         `;
-
-        const existingOrder = await executeQuery(getOrderQuery, [userId]);
+        const existingOrder = await executeQuery(existingOrderQuery, [userId]);
 
         if (existingOrder.length > 0) {
-            // Cập nhật orderType và order_status
+            const orderId = existingOrder[0].Order_Id;
+
+            // Trừ phí vận chuyển từ tổng số trước khi cập nhật
             const updateOrderQuery = `
                 UPDATE orders
-                SET orderType = 'order', order_status = 'ordered'
+                SET orderType = 'order', order_status = 'ordered', shipping_tax = ?, total_amount = (? - ?), date_ordered = NOW()
                 WHERE Order_Id = ?
             `;
-
-            await executeQuery(updateOrderQuery, [existingOrder[0].Order_Id]);
+            await executeQuery(updateOrderQuery, [shippingTax, totalAmountWithShipping, shippingTax, orderId]);
 
             res.status(200).json({ success: true, message: 'Đơn hàng đã được đặt thành công.' });
         } else {
@@ -228,6 +232,54 @@ app.post('/api/placeOrder/:userId', async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi khi đặt hàng.' });
     }
 });
+
+// Thêm một endpoint API mới để xử lý việc xóa sản phẩm
+app.post('/api/removeItemFromCart', async (req, res) => {
+    try {
+        const { orderId, productId } = req.body;
+
+        // Triển khai logic để xóa sản phẩm khỏi giỏ hàng (orderdetails)
+        const removeItemQuery = `
+          DELETE FROM orderdetails
+          WHERE order_id = ? AND product_id = ?
+      `;
+
+        await executeQuery(removeItemQuery, [orderId, productId]);
+
+        // Cập nhật total_amount trong orders sau khi xóa sản phẩm
+        await updateTotalAmount(orderId);
+
+        res.status(200).json({ success: true, message: 'Sản phẩm đã được xóa khỏi giỏ hàng.' });
+    } catch (error) {
+        console.error('Lỗi khi xóa sản phẩm:', error);
+        res.status(500).json({ success: false, message: 'Lỗi khi xóa sản phẩm.' });
+    }
+});
+
+//update quantity 
+app.post('/api/updateOrderDetails', async (req, res) => {
+    try {
+        const { orderId, productId, newQuantity, newAmount } = req.body;
+
+        // Cập nhật số lượng và amount trong orderdetails
+        const updateQuantityQuery = `
+        UPDATE orderdetails
+        SET quantity = ?, amount = ?
+        WHERE order_id = ? AND product_id = ?;
+      `;
+
+        await executeQuery(updateQuantityQuery, [newQuantity, newAmount, orderId, productId]);
+
+        // Cập nhật total_amount trong orders sau khi cập nhật số lượng và amount
+        await updateTotalAmount(orderId);
+
+        res.status(200).json({ success: true, message: 'Số lượng và giá sản phẩm đã được cập nhật thành công!' });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật số lượng và giá sản phẩm trong bảng orderdetails:', error);
+        res.status(500).json({ success: false, message: 'Lỗi khi cập nhật số lượng và giá sản phẩm.' });
+    }
+});
+
 
 
 app.listen(port, () => {
